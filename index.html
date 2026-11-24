@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#030407"><meta name="description" content="A hand-tied bouquet of crystal-white ASCII tulips under the stars.">
+<title>Tulips Under Starlight</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#030407}canvas{display:block;width:100vw;height:100vh}
+</style>
+</head>
+<body>
+<canvas id="art" aria-label="A colorful ASCII bouquet of crystal-white tulips under a sparkling night sky"></canvas>
+<script>
+// Browser edition of the finished terminal bouquet: same flower glyphs, colors,
+// growth order, tied paper wrap, bow, and restrained star animation.
+const canvas=document.querySelector('#art'),ctx=canvas.getContext('2d');
+const WHITE=[248,252,255], PETALS=[[152,213,255],[204,174,255],[255,177,212],[145,238,215],[255,221,147]], ICE=[185,232,255], GREEN=[36,222,126], MINT=[112,255,185], TEAL=[33,180,174], PAPER=[43,98,118], PAPER_LIT=[91,161,166], GOLD=[255,202,81], PINK=[255,89,153], BLUSH=[255,166,192], STAR=[201,216,255];
+const FLOWERS=[[-11,15,3.35],[-4,17,3.55],[4,17,3.55],[11,15,3.35],[-18,10,3.55],[-10,12,3.7],[-2,13,3.8],[6,12,3.7],[15,10,3.55],[-23,5,3.45],[-15,7,3.7],[-7,8,3.8],[1,8,3.85],[9,7,3.8],[17,6,3.65],[23,4,3.4],[-14,0,3.45],[-5,-1,3.65],[5,-1,3.65],[14,0,3.45]];
+const mix=(a,b,t)=>{t=Math.max(0,Math.min(1,t));return a.map((x,i)=>Math.round(x+(b[i]-x)*t))},ease=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v)},rgb=c=>`rgb(${c[0]},${c[1]},${c[2]})`;
+let w,h,dpr,cw,ch,cols,rows,scale,floor,stars=[],cells=[];
+class Screen{
+ constructor(){this.clear()}
+ clear(){cells=Array.from({length:cols*rows},()=>null)}
+ xy(x,y){return [Math.round(cols/2+x*scale*1.28),Math.round(floor-y*scale)]}
+ put(x,y,z,char,color){const [sx,sy]=this.xy(x,y);this.putScreen(sx,sy,z,char,color)}
+ putScreen(x,y,z,char,color){x=Math.round(x);y=Math.round(y);if(x<0||x>=cols||y<0||y>=rows)return;const k=y*cols+x,old=cells[k];if(!old||z>=old.z)cells[k]={z,char,color}}
+ line(x1,y1,x2,y2,z,char,color){const [ax,ay]=this.xy(x1,y1),[bx,by]=this.xy(x2,y2),steps=Math.max(Math.abs(bx-ax),Math.abs(by-ay),1);for(let i=0;i<=steps;i++){const q=i/steps;this.put(x1+(x2-x1)*q,y1+(y2-y1)*q,z,char,color)}}
+}
+function makeStars(){let seed=9081;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};return Array.from({length:Math.max(160,cols*rows/15|0)},()=>({x:rand()*(cols-1),y:rand()*(rows-1),phase:rand()*Math.PI*2,speed:.6+rand()*2.2,size:rand()}))}
+function drawStars(s,t){for(const p of stars){const pulse=(Math.sin(t*p.speed+p.phase)+1)/2,color=mix([62,76,113],[255,239,204],pulse);if(p.size>.92&&pulse>.78){s.putScreen(p.x,p.y,-90,'+',color);if(pulse>.94){s.putScreen(p.x,p.y+1,-90,'|',mix(color,[120,139,177],.55));s.putScreen(p.x-1,p.y,-90,'-',mix(color,[120,139,177],.55))}}else s.putScreen(p.x,p.y,-90,p.size>.72?'*':'.',color)}}
+function drawStem(s,x,headY,baseY,growth,phase,z){const top=baseY+(headY-baseY)*growth,bundleX=Math.sin(phase*1.7)*.48;let lastX=bundleX,lastY=baseY,count=Math.max(2,Math.round((top-baseY)*4));for(let i=1;i<=count;i++){const u=i/count,yy=baseY+(top-baseY)*u,xx=bundleX*(1-u)+x*u+.13*Math.sin(u*3+phase)*u,glyph=i%4?'|':':',shade=mix([12,111,75],GREEN,.45+.45*Math.sin(u*Math.PI));s.line(lastX,lastY,xx,yy,z,glyph,shade);if(i%3===0)s.put(xx+.35,yy,z+.02,"'",MINT);lastX=xx;lastY=yy}}
+function drawLeaf(s,x,y,direction,length,growth,z){if(growth<=0)return;const reach=length*growth;for(let i=1;i<23;i++){const u=i/22,lx=x+direction*reach*u,ly=y+.4+1.05*u+.62*Math.sin(Math.PI*u),half=Math.sin(Math.PI*u)*.95;for(const side of [-1,0,1]){const xx=lx+side*half*.72,yy=ly+side*half*.38,char=side===0?(i%2?'~':'-'):(direction<0?'/':'\\'),color=side===0?MINT:mix([8,122,78],GREEN,.55+.3*u);s.put(xx,yy,z+.05,char,color)}}}
+function drawTulip(s,x,footY,size,opened,z,accent){const art=['  /\\_/\\  ',' /#:::#\\ ','/##*#*##\\','|#@###@#|','\\#######/',' \\_###_/ '],unit=(.62+.38*opened)*size/3.7,cellX=unit/(scale*1.28),cellY=unit/scale;for(let r=0;r<art.length;r++)for(let c=0;c<art[r].length;c++){const ch=art[r][c];if(ch===' ')continue;const xx=x+(c-4)*cellX,yy=footY+(5-r)*cellY;let color;if('/\\_|_'.includes(ch))color=mix(accent,WHITE,.48);else if(ch==='#')color=mix(accent,WHITE,.72);else if(ch==='@')color=WHITE;else if(ch==='*')color=mix(GOLD,accent,.28);else if(ch===':')color=accent;else color=ICE;s.put(xx,yy,z+.12+(5-r)*.008,ch,color)}}
+function drawBabyBreath(s,t){for(const side of [-1,1]){const rootX=side*4.2,rootY=1.5;for(let branch=0;branch<4;branch++){const start=ease((t-(branch*.10+2.1))/.8),length=(3.2+branch*.45)*start,bx=rootX+side*branch*.9,by=rootY+branch*.45,ex=bx+side*length,ey=by+3.5+branch*.25;s.line(bx,by,ex,ey,-1,side<0?'/':'\\',TEAL);for(let bud=1;bud<5;bud++){const q=bud/5,tx=bx+(ex-bx)*q,ty=by+(ey-by)*q,glint=.5+.5*Math.sin(branch*2.1+bud*1.7);for(const [dx,dy] of [[0,0],[-.38,.12],[.38,-.12],[0,.38]])s.put(tx+dx,ty+dy,-.4,glint>.82?'+':'.',mix([142,202,225],WHITE,glint))}}}}
+function drawWrapper(s,t){const shown=ease((t-3.2)/1);if(!shown)return;const topY=-9,bottomY=-15.6;for(let row=0;row<22;row++){const v=row/21;if(v>shown)continue;const yy=topY+(bottomY-topY)*v,half=11.5-7.5*v,edge=1-.88*v;for(let col=-24;col<=24;col++){const u=col/24;if(Math.abs(u)>edge)continue;const xx=u*half,stripe=Math.abs(Math.abs(u)-(.24+.4*v))<.045;let char,color;if(stripe){char=u<0?'/':'\\';color=mix(TEAL,PAPER_LIT,.75)}else if((row+col)%9===0){char="'";color=mix(PAPER_LIT,ICE,.3)}else if((row+col)%5===0){char=':';color=mix(PAPER,[126,101,176],.42)}else{char=(row+col)%3===0?'#':'.';color=mix(PAPER,PAPER_LIT,.25+.18*((row+col)%4))}s.put(xx,yy,-1.5+v*.03,char,color)}}for(let i=0;i<31;i++){const v=i/30*shown,yy=topY+(bottomY-topY)*v,half=11.5-7.5*v;for(const side of [-1,1])s.put(side*half,yy,-.8,i%4===0?'*':'.',GOLD)}const bandY=-13.8,bandV=(topY-bandY)/(topY-bottomY),bandHalf=11.5-7.5*bandV;for(let i=0;i<31;i++){const u=i/30,xx=-bandHalf+2*bandHalf*u;s.put(xx,bandY+.28*Math.sin(u*Math.PI*2),.15,i%2?'=':'~',i%4?BLUSH:GOLD)}}
+function drawHandle(s){for(let i=-5;i<=5;i++){const topX=i*.33,bottomX=i*.23,color=mix([13,120,75],GREEN,.45+.07*(i+5));s.line(topX,-15.45,bottomX,-18.1,.45,i%2?'|':':',color);s.put(bottomX,-18.2,.5,'|',i%3===0?MINT:color)}}
+function drawBow(s,t){const appeared=ease((t-4.9)/.65);if(!appeared)return;const knotY=-13.8;for(const side of [-1,1])for(let i=0;i<42;i++){const a=i/41*Math.PI*2,x=side*(1.2+4*Math.sin(a)),y=knotY+2*Math.sin(a)*Math.cos(a),color=mix(PINK,BLUSH,.5+.5*Math.sin(a));s.put(x,y,2.2,i%4?'@':'*',color);if(i%3===0)s.put(x,y+.25,2.25,'-',GOLD)}s.put(-.8,knotY,2.6,'<',GOLD);s.put(-.25,knotY,2.7,'@',BLUSH);s.put(.25,knotY,2.7,'@',PINK);s.put(.8,knotY,2.6,'>',GOLD);s.put(0,knotY+.45,2.6,'*',WHITE);for(const side of [-1,1]){let prev=null;for(let i=0;i<22;i++){const u=i/21,x=side*(.55+2.5*u+.28*Math.sin(u*8)),y=knotY-.25-3*u+.22*Math.sin(u*7);if(prev)s.line(prev[0],prev[1],x,y,2.15,'~',PINK);s.put(x,y,2.2,i%3?'.':'*',i%4===0?GOLD:BLUSH);prev=[x,y]}}}
+function render(t){const s=new Screen();drawStars(s,t);const baseY=-10.1;for(let i=0;i<FLOWERS.length;i++){let [x,targetY,size]=FLOWERS[i];x*=1.25;const delay=i*.115,rise=ease((t-delay)/1.75);if(!rise)continue;const headY=baseY+(targetY-baseY)*rise;drawStem(s,x,targetY,baseY,rise,i*.63,-2+(i%3)*.06);drawLeaf(s,x*.32,baseY+(targetY-baseY)*.32,i%2?-1:1,4.3,ease(Math.max(0,t-delay-.35)/.75),-1.7+i*.01);drawLeaf(s,x*.62,baseY+(targetY-baseY)*.62,i%2?1:-1,3.5,ease(Math.max(0,t-delay-.62)/.8),-1.6+i*.01);const bloom=ease((t-delay-2.15)/1.35);if(rise>.86)drawTulip(s,x,headY,size,bloom,1+(i%4)*.025,PETALS[i%PETALS.length])}drawBabyBreath(s,t);drawWrapper(s,t);drawHandle(s);drawBow(s,t);for(let y=0;y<rows;y++){let runColor=null;for(let x=0;x<cols;x++){const c=cells[y*cols+x];if(!c)continue;const color=rgb(c.color);if(color!==runColor){ctx.fillStyle=color;runColor=color}ctx.fillText(c.char,x*cw+cw/2,y*ch)}}}
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;cw=9;ch=18;cols=Math.max(60,Math.floor(w/cw));rows=Math.max(30,Math.floor(h/ch));canvas.width=Math.floor(w*dpr);canvas.height=Math.floor(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#030407';ctx.textBaseline='top';ctx.textAlign='center';ctx.font=`${Math.floor(ch*.83)}px Consolas,'Courier New',monospace`;scale=Math.max(.55,Math.min((cols-4)/56,(rows-8)/40)*.86);floor=rows*.61;stars=makeStars()}
+function frame(ms){ctx.fillStyle='#030407';ctx.fillRect(0,0,w,h);render(ms/1000);requestAnimationFrame(frame)}
+addEventListener('resize',resize);resize();requestAnimationFrame(frame);
+</script>
+</body>
+</html>
+
